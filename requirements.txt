@@ -4,3 +4,4 @@ numpy
 Pillow
 sympy
 opencv-python-headless
+streamlit-cropper
