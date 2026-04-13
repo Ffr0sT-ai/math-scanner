@@ -1,51 +1,45 @@
 import streamlit as st
-import easyocr
-import numpy as np
-from PIL import Image
+import pytesseract
+from PIL import Image, ImageEnhance
+from streamlit_cropper import st_cropper
 import sympy as sp
-import cv2
 
-st.set_page_config(page_title="Math Scanner", page_icon="🔢")
+st.set_page_config(page_title="Math Scanner Pro", page_icon="🔢")
 
-st.title("🔢 Math Equation Scanner")
-st.write("Point your camera at a math problem and I'll solve it!")
+st.title("🔢 Pro Math Scanner")
+st.write("Crop the image to focus on the equation!")
 
-# 1. Camera Input
+# 1. Capture the image
 img_file = st.camera_input("Take a photo")
 
 if img_file:
-    # Load image and convert to Grayscale
-    img = Image.open(img_file).convert('L')
-    st.image(img, caption="Original Scan", use_container_width=True)
+    img = Image.open(img_file)
     
-    img_np = np.array(img)
+    # 2. THE CROPPER: This lets you select just the math
+    st.write("### Step 1: Drag the box to crop your equation")
+    cropped_img = st_cropper(img, realtime_update=True, box_color='#00FF00', aspect_ratio=None)
     
-    # 2. AUTO-ENHANCE (The "Sharper Eyes")
-    # This removes shadows and makes the ink pop
-    _, img_enhanced = cv2.threshold(img_np, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    # 3. GRID FIX: Boost contrast to make the grid disappear
+    # We make the ink super dark and the paper/grid super bright
+    enhancer = ImageEnhance.Contrast(cropped_img)
+    processed_img = enhancer.enhance(2.5) # Increase contrast 2.5x
     
-    # Show the user what the AI is actually looking at
-    st.image(img_enhanced, caption="What the AI sees", use_container_width=True)
-    
-    # 3. The "PRO Brain" Setup
-    reader = easyocr.Reader(['en'])
-    
-    # Process the enhanced image
-    with st.spinner('Thinking...'):
-        result = reader.readtext(img_enhanced, detail=0)
-        raw_text = "".join(result).replace(" ", "").lower()
-        
-        # Safety Net for common handwriting mistakes
-        mapping = {')': '2', 'z': '2', 's': '5', 'i': '1', 'o': '0'}
-        clean_text = "".join([mapping.get(char, char) for char in raw_text])
+    st.image(processed_img, caption="What the AI sees", width=300)
 
-    st.subheader(f"Detected: {clean_text}")
+    if st.button("Solve Crop"):
+        with st.spinner('Reading...'):
+            # Math Glasses config
+            custom_config = r'--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789+-*/()'
+            raw_text = pytesseract.image_to_string(processed_img, config=custom_config)
+            clean_text = raw_text.strip().replace(" ", "").lower()
 
-    # 4. The Math Solver
-    try:
-        # A quick fix just in case they write 'x' instead of '*'
-        calc_text = clean_text.replace('x', '*')
-        answer = sp.sympify(calc_text)
-        st.success(f"✅ The Answer is: {answer}")
-    except:
-        st.error("❌ Couldn't solve it. Check the 'What the AI sees' image to see what went wrong!")
+        st.subheader(f"Detected: {clean_text}")
+
+        try:
+            if clean_text:
+                answer = sp.sympify(clean_text)
+                st.success(f"✅ The Answer is: {answer}")
+            else:
+                st.warning("Empty crop! Try again.")
+        except:
+            st.error("❌ Math error. Try cropping closer to the numbers!")
