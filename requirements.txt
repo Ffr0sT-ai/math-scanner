@@ -1,7 +1,5 @@
 streamlit
-easyocr
-numpy
+pytesseract
 Pillow
 sympy
-opencv-python-headless
 streamlit-cropper
