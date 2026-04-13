@@ -3,3 +3,4 @@ easyocr
 numpy
 Pillow
 sympy
+opencv-python-headless
